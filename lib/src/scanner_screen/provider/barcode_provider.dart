@@ -1,7 +1,5 @@
 import 'dart:io';
 
-import 'package:barcode_genrator/core/utils/utility.dart';
-import 'package:barcode_genrator/core/widgets/adaptive_alert_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart';
@@ -10,6 +8,8 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/routes/navigation_service.dart';
 import '../../../core/utils/image_handler.dart';
+import '../../../core/utils/utility.dart';
+import '../../../core/widgets/adaptive_alert_dialog.dart';
 
 final scanningProvider =
     ChangeNotifierProvider<BarcodeProvider>((ref) => BarcodeProvider());
@@ -55,16 +55,15 @@ class BarcodeProvider extends ChangeNotifier {
           final barcodes = await _barcodeScanner.processImage(inputImage);
 
           String text = "";
-
-          for (final barcode in barcodes) {
-            text += '${barcode.displayValue}';
+          if (barcodes.isEmpty) {
+            _showAlertDialog("A barcode was not found");
+          } else {
+            for (final barcode in barcodes) {
+              text += '${barcode.displayValue}';
+            }
+            _barcodeText = text;
+            _showAlertDialog("Is your text: $barcodeText");
           }
-          _barcodeText = text;
-          _showAlertDialog(_barcodeText);
-
-          // if (_barcodeText == null && _barcodeText!.isEmpty) {
-          //   _showAlertDialog();
-          // }
           notifyListeners();
         }
       }
@@ -75,18 +74,22 @@ class BarcodeProvider extends ChangeNotifier {
     }
   }
 
-  void _showAlertDialog(String? barcodeText) {
+  void _showAlertDialog(String content) {
     AdaptiveAlerts().showAlert(
         context: NavigationService.navigatorKey.currentState!.context,
-        title: "Is your text: $barcodeText",
+        title: "Striden",
         cancelText: "Retry",
         acceptText: "Continue",
-        content: "A barcode was not found",
+        content: content,
         accept: () {
           _appbarText = "Select Receiver Name";
+          notifyListeners();
+          Navigator.of(NavigationService.navigatorKey.currentState!.context)
+              .pop();
         },
         cancel: () {
-          NavigationService.navigatorKey.currentState!.context;
+          Navigator.of(NavigationService.navigatorKey.currentState!.context)
+              .pop();
         });
   }
 }

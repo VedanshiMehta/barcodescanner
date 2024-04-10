@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../src/scanner_screen/scanner_screen.dart';
+import '../core/routes/generate_routes.dart';
+import '../core/routes/navigation_service.dart';
+import '../core/routes/routes_constant.dart';
+import '../src/home/home_screen.dart';
 
 void main() {
   runApp(const ProviderScope(child: MyApp()));
@@ -14,11 +17,14 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      navigatorKey: NavigationService.navigatorKey,
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const ScannerScreen(),
+      onGenerateRoute: RouteGenerator.generateRoute,
+      initialRoute: RoutesConst.initalRoute,
+      home: const HomeScreen(),
     );
   }
 }
