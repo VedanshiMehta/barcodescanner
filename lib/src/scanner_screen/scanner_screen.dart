@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'camera_view.dart';
+import '../../core/constants/appThemes/colors.dart';
 import 'provider/barcode_provider.dart';
+import 'widget/image_selected_view_widget.dart';
 
-class HomeScreen extends ConsumerWidget {
-  const HomeScreen({super.key});
+class ScannerScreen extends ConsumerWidget {
+  const ScannerScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.blueGrey,
+        backgroundColor: AppColors.primaryOrange,
         title: const Text(
           "Open Packages",
           style: TextStyle(
@@ -20,11 +21,12 @@ class HomeScreen extends ConsumerWidget {
         actions: [
           IconButton(
               onPressed: () => {
-                    ref.read(imageProvider).addImage(),
+                    ref.read(scanningProvider).addImage(),
                     Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => const CameraView()))
+                            builder: (context) =>
+                                const ImageSelectedViewWidget()))
                   },
               icon: const Icon(
                 Icons.qr_code_scanner_outlined,

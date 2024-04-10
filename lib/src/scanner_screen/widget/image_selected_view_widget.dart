@@ -1,91 +1,51 @@
-import 'dart:async';
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
 
-import 'provider/barcode_provider.dart';
+import '../../../core/constants/appThemes/colors.dart';
+import '../provider/barcode_provider.dart';
 
-class CameraView extends ConsumerStatefulWidget {
-  const CameraView({super.key});
+class ImageSelectedViewWidget extends ConsumerStatefulWidget {
+  const ImageSelectedViewWidget({super.key});
 
   @override
-  ConsumerState<CameraView> createState() => CameraViewState();
+  ConsumerState<ImageSelectedViewWidget> createState() => CameraViewState();
 }
 
-class CameraViewState extends ConsumerState<CameraView> {
+class CameraViewState extends ConsumerState<ImageSelectedViewWidget> {
   Offset? _startDrag;
-  Offset? _currentDrag;
-  final BarcodeScanner _barcodeScanner = BarcodeScanner();
+  Offset? _endDrag;
+  Offset? _cropStartDrag;
+  Offset? _cropEndDrag;
 
-  Future<XFile?> _cropImage(XFile? imageFile) async {
-    if (imageFile == null) return null;
-
-    try {
-      final image = img.decodeImage(File(imageFile.path).readAsBytesSync());
-
-      final left = (_startDrag!.dx).toInt();
-      final top = (_startDrag!.dy).toInt();
-      final width = ((_currentDrag!.dx - _startDrag!.dx)).toInt();
-      final height = ((_currentDrag!.dy - _startDrag!.dy)).toInt();
-
-      final croppedImage =
-          img.copyCrop(image!, x: left, y: top, width: width, height: height);
-      if (croppedImage == null) {
-        print('Error: Failed to crop image.');
-        return null;
-      }
-
-      final croppedBytes = img.encodePng(croppedImage);
-      final croppedFile = File('${imageFile.path}_cropped.png')
-        ..writeAsBytesSync(croppedBytes);
-      print('Cropped image size: ${croppedFile.lengthSync()} bytes');
-      final croppedFileBytes = croppedFile.readAsBytesSync();
-      return XFile.fromData(croppedFileBytes, name: croppedFile.path);
-    } catch (e) {
-      print("Error cropping image: $e");
-    }
-  }
-
-  Future<void> _processImage(XFile? image) async {
-    try {
-      if (image != null) {
-        var croppedImage = await _cropImage(image);
-        if (croppedImage != null) {
-          print(
-              'Cropped image after beim size: ${croppedImage!.length()} bytes');
-          final inputImage = InputImage.fromFilePath(croppedImage.path);
-          final barcodes = await _barcodeScanner.processImage(inputImage);
-
-          String text = 'Barcodes found: ${barcodes.length}\n\n';
-
-          for (final barcode in barcodes) {
-            text += 'Barcode: ${barcode.displayValue}\n\n';
-          }
-          print("Barcode text: $text");
-        }
-      }
-    } catch (e) {
-      print("Error on scanning: ${e.toString()}");
-    } finally {
-      _barcodeScanner.close();
-    }
-  }
+  final GlobalKey _imageKey = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
-    var image = ref.watch(imageProvider).image;
+    var scannerProvider = ref.watch(scanningProvider);
+    var barcodeText = scannerProvider.barcodeText;
+    var appbarText = scannerProvider.appbarText;
+    log("Barcode Text: $barcodeText");
+    var size = MediaQuery.of(context).size;
+    double width = size.width;
+    var image = ref.watch(scanningProvider).image;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Select Barcode'),
+        backgroundColor: AppColors.primaryOrange,
+        title: Text(
+          appbarText,
+          style: const TextStyle(color: AppColors.whiteColor),
+        ),
       ),
       body: Stack(
         children: [
           Center(
             child: InteractiveViewer(
+              key: _imageKey,
               constrained: true,
               scaleEnabled: true,
               panEnabled: true,
@@ -115,22 +75,34 @@ class CameraViewState extends ConsumerState<CameraView> {
                 final localPosition = details.localPosition;
                 setState(() {
                   _startDrag = localPosition;
-                  _currentDrag = localPosition;
+                  _endDrag = localPosition;
                 });
+                RenderBox renderBox =
+                    _imageKey.currentContext?.findRenderObject() as RenderBox;
+
+                _cropStartDrag =
+                    renderBox.globalToLocal(details.globalPosition);
               },
               onPanUpdate: (details) {
                 final localPosition = details.localPosition;
                 setState(() {
-                  _currentDrag = localPosition;
+                  _endDrag = localPosition;
                 });
+                RenderBox renderBox =
+                    _imageKey.currentContext?.findRenderObject() as RenderBox;
+                _cropEndDrag = renderBox.globalToLocal(details.globalPosition);
               },
               onPanEnd: (details) async {
-                _processImage(image);
+                ref.read(scanningProvider).scanBarcode(
+                    croppedStart: _cropStartDrag,
+                    croppedEnd: _cropEndDrag,
+                    width: width,
+                    file: File(image?.path ?? ""));
               },
               child: CustomPaint(
                 painter: SelectionPainter(
                   startDrag: _startDrag,
-                  currentDrag: _currentDrag,
+                  currentDrag: _endDrag,
                 ),
               ),
             ),
@@ -165,5 +137,22 @@ class SelectionPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
     return true;
+  }
+}
+
+class MyWidget extends StatelessWidget {
+  final img.Image? filePath;
+  const MyWidget({super.key, required this.filePath});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: filePath != null
+          ? Image.memory(
+              img.encodePng(filePath!),
+              fit: BoxFit.contain,
+            )
+          : const Text("No Image Found"),
+    );
   }
 }
